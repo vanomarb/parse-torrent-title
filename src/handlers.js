@@ -228,6 +228,10 @@ exports.addDefaults = /** @type Parser */ parser => {
     parser.addHandler("episodes", /(?<!^)\[(\d{2,3})](?!(?:\.\w{2,4})?$)/, array(integer));
     parser.addHandler("episodes", /\bodc[. ]+(\d{1,3})\b/i, array(integer));
 
+    // Anime arc pattern: "Title: Arc Name - 01" (colon not preceded by S followed by digits)
+    // Only match colons followed by arc name text (not season indicators like "S3")
+    parser.addHandler("episodes", /(?<!S\d)(?<!S\d\d):\s*[^:\[\]]*?\s+-\s+(\d{1,3})(?:\s*\[|$|\s+(?:\d{3,4}p|HEVC|x264|x265|WEB|BD|DL))/i, array(integer), { skipIfAlreadyFound: false });
+
     // can be both absolute episode and season+episode in format 101
     parser.addHandler("episodes", ({ title, result, matched }) => {
         if (!result.episodes) {
