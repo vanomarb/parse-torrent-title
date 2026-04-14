@@ -203,7 +203,7 @@ exports.addDefaults = /** @type Parser */ parser => {
     parser.addHandler("episodes", /(?:[\W\d]|^)\d+[xх][ .]?[([]?(\d{1,3}(?:[ .]?[xх][ .]?\d{1,3})+)(?:\W|$)/i, range);
     parser.addHandler("episodes", /(?:[\W\d]|^)(?:episodes?|[Сс]ерии:?)[ .]?[([]?(\d{1,3}(?:[ .+]*[&+][ .]?\d{1,3})+)(?:\W|$)/i, range);
     parser.addHandler("episodes", /[([]?(?:\D|^)(\d{1,3}[ .]?ao[ .]?\d{1,3})[)\]]?(?:\W|$)/i, range);
-    parser.addHandler("episodes", /(?:[\W\d]|^)(?:e|eps?|episodes?|[Сс]ерии:?|\d+[xх])[ .]*[([]?(\d{1,3}(?:-\d{1,3})+)(?:\W|$)/i, range);
+    parser.addHandler("episodes", /(?:[\W\d]|^)(?:e|eps?|episodes?|[Сс]ерии:?|\d+[xх])[ .]*[([]?(\d{1,4}(?:-\d{1,4})+)(?:\W|$)/i, range);
     parser.addHandler("episodes", /(?:so?|t)\d{1,2}[. ]?[xх-]?[. ]?(?:e|x|х|ep)[. ]?(\d{1,4})(?:[abc]|v0?[1-4]|\D|$)/i, array(integer));
     parser.addHandler("episodes", /(?:so?|t)\d{1,2}\s?[-.]\s?(\d{1,4})(?:[abc]|v0?[1-4]|\D|$)/i, array(integer));
     parser.addHandler("episodes", /\b(?:so?|t)\d{2}(\d{2})\b/i, array(integer));
@@ -230,7 +230,9 @@ exports.addDefaults = /** @type Parser */ parser => {
 
     // Anime arc pattern: "Title: Arc Name - 01" (colon not preceded by S followed by digits)
     // Only match colons followed by arc name text (not season indicators like "S3")
-    parser.addHandler("episodes", /(?<!S\d)(?<!S\d\d):\s*[^:\[\]]*?\s+-\s+(\d{1,3})(?:\s*\[|$|\s+(?:\d{3,4}p|HEVC|x264|x265|WEB|BD|DL))/i, array(integer), { skipIfAlreadyFound: false });
+    // Uses a negative lookahead to avoid matching when the arc section contains a
+    // range like "- 01 - 12" (which indicates a multi-episode pack, not a single arc episode)
+    parser.addHandler("episodes", /(?<!S\d)(?<!S\d\d):(?!\s*[^:\[\]]*?-\s*\d{1,4}\s*-\s*\d{1,4})\s*[^:\[\]]*?\s+-\s+(\d{1,3})(?:\s*\[|$|\s+(?:\d{3,4}p|HEVC|x264|x265|WEB|BD|DL))/i, array(integer), { skipIfAlreadyFound: false });
 
     // can be both absolute episode and season+episode in format 101
     parser.addHandler("episodes", ({ title, result, matched }) => {
