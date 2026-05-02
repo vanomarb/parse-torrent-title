@@ -197,6 +197,51 @@ exports.addDefaults = /** @type Parser */ parser => {
         }
     });
 
+    // Fan-sub Pattern 1: Bracket-enclosed romanized title ending with a Roman numeral
+    // e.g. [Jade Dynasty Ⅱ] → season 2 | [Sword Art Online III] → season 3
+    // Handles both Unicode numerals (Ⅱ Ⅲ…) and ASCII Roman numerals (II III IV…)
+    // Intentionally omits bare 'I' to avoid false positives on single-letter suffixes
+    parser.addHandler("seasons", ({ title, result }) => {
+        if (result.seasons) return null;
+
+        const unicodeRomanMap = {
+            '\u2160': 1, '\u2161': 2, '\u2162': 3, '\u2163': 4, '\u2164': 5,
+            '\u2165': 6, '\u2166': 7, '\u2167': 8, '\u2168': 9, '\u2169': 10
+        };
+        const asciiRomanMap = {
+            'XIII': 13, 'XII': 12, 'XI': 11, 'IX': 9, 'VIII': 8, 'VII': 7,
+            'VI': 6, 'IV': 4, 'III': 3, 'II': 2, 'X': 10, 'V': 5
+        };
+
+        // Unicode Roman numerals first — most unambiguous (Ⅱ Ⅲ Ⅳ …)
+        const unicodeMatch = title.match(/\[[A-Za-z][A-Za-z0-9\s:'.-]{2,?}\s+([\u2160-\u2169])\]/);
+        if (unicodeMatch) {
+            const season = unicodeRomanMap[unicodeMatch[1]];
+            if (season) {
+                result.seasons = [season];
+                return { matchIndex: title.indexOf(unicodeMatch[0]) };
+            }
+        }
+
+        // ASCII Roman numerals — longest alternatives first to prevent II matching inside III
+        const asciiMatch = title.match(/\[[A-Za-z][A-Za-z0-9\s:'.-]{2,?}\s+(XIII|XII|XI|IX|VIII|VII|VI|IV|III|II|X{1,3}|V)\]/);
+        if (asciiMatch) {
+            const season = asciiRomanMap[asciiMatch[1]];
+            if (season) {
+                result.seasons = [season];
+                return { matchIndex: title.indexOf(asciiMatch[0]) };
+            }
+        }
+
+        return null;
+    });
+
+    // Fan-sub Pattern 2: Parenthesized title ending with a 1–2 digit season number
+    // e.g. (Sword of Coming 2) → season 2
+    // Requires ≥3 alpha chars before the number to avoid matching (720p) or (2024)
+    // remove:true strips the matched group so the trailing number isn't re-parsed as an episode
+    parser.addHandler("seasons", /\([A-Za-z][A-Za-z\s:'.-]{2,}\s+(\d{1,2})\)/, array(integer), { remove: true });
+
     // Episode
     parser.addHandler("episodes", /(?:[\W\d]|^)e[ .]?[([]?(\d{1,3}(?:[ .-]*(?:[&+]|e){1,2}[ .]?\d{1,3})+)(?:\W|$)/i, range);
     parser.addHandler("episodes", /(?:[\W\d]|^)ep[ .]?[([]?(\d{1,3}(?:[ .-]*(?:[&+]|ep){1,2}[ .]?\d{1,3})+)(?:\W|$)/i, range);
@@ -215,6 +260,9 @@ exports.addDefaults = /** @type Parser */ parser => {
     parser.addHandler("episodes", /(?<=^\[.+].+)[. ]+-[. ]+(\d{1,4})[. ]+(?=\W)/i, array(integer));
     parser.addHandler("episodes", /(?<!(?:seasons?|[Сс]езони?)\W*)(?:[ .([-]|^)(\d{1,3}(?:[ .]?[,&+~][ .]?\d{1,3})+)(?:[ .)\]-]|$)/i, range);
     parser.addHandler("episodes", /(?<!(?:seasons?|[Сс]езони?)\W*)(?!20-20)(?:[ .([-]|^)(\d{1,3}(?:-\d{1,3})+)(?:[ .)(\]]|-\D|$)/i, range);
+    // Bracketed numeric ranges with optional trailing markers like "Fin" or "End"
+    // e.g. [01-17 Fin], [01-26], [01-17 End]
+    parser.addHandler("episodes", /\[(\s*0*\d{1,3}\s*(?:[-–~]|to)\s*0*\d{1,3}(?:\s*(?:fin|end|fin\.|end\.)?)?\s*)\]/i, range, { remove: true });
     parser.addHandler("episodes", /\bEp(?:isode)?\W+\d{1,2}\.(\d{1,3})\b/i, array(integer));
     parser.addHandler("episodes", /(?:\b[ée]p?(?:isode)?|[Ээ]пизод|[Сс]ер(?:ии|ия|\.)?|caa?p(?:itulo)?|epis[oó]dio)[. ]?[-:#№]?[. ]?(\d{1,4})(?:[abc]|v0?[1-4]|\W|$)/i, array(integer));
     parser.addHandler("episodes", /\b(\d{1,3})(?:-?я)?[ ._-]*(?:ser(?:i?[iyj]a|\b)|[Сс]ер(?:ии|ия|\.)?)/i, array(integer));
@@ -280,6 +328,18 @@ exports.addDefaults = /** @type Parser */ parser => {
     parser.addHandler("complete", /\b(collection|completa)\b/i, boolean, { skipFromTitle: true });
     parser.addHandler("complete", /\bkolekcja\b(?:\Wfilm(?:y|ów|ow)?)?/i, boolean, { remove: true });
     parser.addHandler("complete", /duology|trilogy|quadr[oi]logy|tetralogy|pentalogy|hexalogy|heptalogy|anthology|saga/i, boolean, { skipIfAlreadyFound: false });
+
+    // Batch marker — detect labelled "batch" packs (e.g., "[Group] Title (batch)", "[Group] Title [BATCH]")
+    // We set a lightweight flag so callers can treat these uploads as multi-episode packs
+    parser.addHandler("batch", ({ title, result }) => {
+        if (result.episodes || result.batch) return null;
+        const m = title.match(/\bbatch\b/i);
+        if (m) {
+            result.batch = true;
+            return { matchIndex: m.index };
+        }
+        return null;
+    });
 
     // Language
     parser.addHandler("languages", /\bmulti(?:ple)?[ .-]*(?:su?$|sub\w*|dub\w*)\b|msub/i, uniqConcat(value("multi subs")), { skipIfAlreadyFound: false, remove: true });
