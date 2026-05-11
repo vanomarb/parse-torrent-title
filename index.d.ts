@@ -37,6 +37,11 @@ declare namespace ParseTorrentTitle {
         threeD?: string;
         audio?: string;
         group?: string;
+        batch?: boolean;
+        isBatch?: boolean;
+        isMovie?: boolean;
+        episodeRangeStart?: number;
+        episodeRangeEnd?: number;
         volumes?: Array<number>;
         seasons?: Array<number>;
         season?: number;

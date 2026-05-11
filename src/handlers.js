@@ -275,6 +275,10 @@ exports.addDefaults = /** @type Parser */ parser => {
     parser.addHandler("episodes", /\b\d{2}[ ._-](\d{2})(?:.F)?\.\w{2,4}$/, array(integer));
     parser.addHandler("episodes", /(?<!^)\[(\d{2,3})](?!(?:\.\w{2,4})?$)/, array(integer));
     parser.addHandler("episodes", /\bodc[. ]+(\d{1,3})\b/i, array(integer));
+    parser.addHandler("episodes", /\|\s*0*(\d{1,4})\s*\|/, array(integer), {
+        skipIfAlreadyFound: false,
+        remove: true,
+    });
 
     // Anime arc pattern: "Title: Arc Name - 01" (colon not preceded by S followed by digits)
     // Only match colons followed by arc name text (not season indicators like "S3")
@@ -319,6 +323,13 @@ exports.addDefaults = /** @type Parser */ parser => {
         }
     });
 
+    parser.addHandler("episodeRangeStart", ({ result }) => {
+        if (result.episodes && result.episodes.length > 1) {
+            result.episodeRangeStart = result.episodes[0];
+            result.episodeRangeEnd = result.episodes[result.episodes.length - 1];
+        }
+    });
+
     parser.addHandler("complete", /(?:\bthe\W)?(?:\bcomplete|collection|dvd)?\b[ .]?\bbox[ .-]?set\b/i, boolean);
     parser.addHandler("complete", /(?:\bthe\W)?(?:\bcomplete|collection|dvd)?\b[ .]?\bmini[ .-]?series\b/i, boolean);
     parser.addHandler("complete", /(?:\bthe\W)?(?:\bcomplete|full|all)\b.*\b(?:series|seasons|collection|episodes|set|pack|movies)\b/i, boolean);
@@ -339,6 +350,25 @@ exports.addDefaults = /** @type Parser */ parser => {
             return { matchIndex: m.index };
         }
         return null;
+    });
+
+    parser.addHandler("isBatch", ({ result, title }) => {
+        if (result.isMovie) return;
+        if (
+            (result.seasons?.length > 0 && !result.episodes?.length) ||
+            result.batch ||
+            (result.episodes?.length > 1) ||
+            result.complete ||
+            /\b(?:batch|pack|complete)\b/i.test(title)
+        ) {
+            result.isBatch = true;
+        }
+    });
+
+    parser.addHandler("isMovie", ({ result, title }) => {
+        if (/\b(?:movie|film|collection|compil)\b/i.test(title) && !result.seasons?.length) {
+            result.isMovie = true;
+        }
     });
 
     // Language

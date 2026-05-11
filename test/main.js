@@ -140,6 +140,7 @@ describe("Random releases", () => {
             title: "Game of Thrones",
             seasons: [3],
             season: 3,
+            isBatch: true,
             source: "HDTV"
         });
     });
@@ -149,7 +150,8 @@ describe("Random releases", () => {
         expect(parse(releaseName)).to.deep.equal({
             title: "The Sopranos",
             seasons: [1, 2, 3, 4, 5, 6],
-            complete: true
+            complete: true,
+            isBatch: true,
         });
     });
 
@@ -159,6 +161,7 @@ describe("Random releases", () => {
             seasons: [1, 2, 3, 4, 5, 6, 7],
             title: "Skins",
             resolution: "720p",
+            isBatch: true,
             source: "WEB-DL"
         });
     });
@@ -169,6 +172,7 @@ describe("Random releases", () => {
             title: "Futurama",
             seasons: [1, 2, 3, 4, 5, 6, 7],
             resolution: "720p",
+            isBatch: true,
             source: "BluRay",
             codec: "x265",
             group: "HETeam"
@@ -183,6 +187,7 @@ describe("Random releases", () => {
             season: 1,
             languages: ["swedish"],
             resolution: "1080p",
+            isBatch: true,
             codec: "x264",
             group: "Justiso",
         });
@@ -204,6 +209,7 @@ describe("Random releases", () => {
             title: "House MD",
             season: 7,
             seasons: [7],
+            isBatch: true,
             container: "mkv"
         });
     });
@@ -212,6 +218,7 @@ describe("Random releases", () => {
         const releaseName = "2008 The Incredible Hulk Feature Film.mp4";
         expect(parse(releaseName)).to.deep.equal({
             title: "The Incredible Hulk Feature Film",
+            isMovie: true,
             year: 2008,
             container: "mp4",
             extension: "mp4"
@@ -251,6 +258,9 @@ describe("Random releases", () => {
             seasons: [4],
             season: 4,
             episodes: [1, 2, 3, 4, 5, 6],
+            episodeRangeStart: 1,
+            episodeRangeEnd: 6,
+            isBatch: true,
             languages: ["english"],
             resolution: "1080p",
             source: "WEBRip",
@@ -264,6 +274,7 @@ describe("Random releases", () => {
             seasons: [1],
             season: 1,
             resolution: "1080p",
+            isBatch: true,
             source: "BDRip",
             audio: "aac",
             codec: "hevc",
@@ -314,6 +325,9 @@ describe("Random releases", () => {
         expect(parse(releaseName)).to.deep.equal({
             title: "Soul Land",
             episodes: [121, 122, 123, 124, 125],
+            episodeRangeStart: 121,
+            episodeRangeEnd: 125,
+            isBatch: true,
             resolution: "1080p",
             source: "WEB-DL",
             languages: ["english"]
@@ -326,6 +340,7 @@ describe("Random releases", () => {
             title: "The God of Highschool",
             seasons: [1],
             season: 1,
+            isBatch: true,
             resolution: "720p"
         });
     });
@@ -348,6 +363,7 @@ describe("Random releases", () => {
             year: 2024,
             seasons: [1],
             season: 1,
+            isBatch: true,
             resolution: "1080p",
             codec: "h264",
             group: "EDITH"
