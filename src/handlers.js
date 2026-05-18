@@ -275,6 +275,12 @@ exports.addDefaults = /** @type Parser */ parser => {
     // remove:true strips the matched group so the trailing number isn't re-parsed as an episode
     parser.addHandler("seasons", /\([A-Za-z][A-Za-z\s:'.-]{2,}\s+(\d{1,2})\)/, array(integer), { remove: true });
 
+    // Bare "S\d" suffix — e.g. "Apotheosis S2", "Battle Through the Heavens S4"
+    // None of the above handlers catch a lone S\d at end-of-title (they all require an episode
+    // component or a multi-season range following the S).  This handler fires last as a safety
+    // net; skipIfAlreadyFound ensures it cannot override a season already extracted above.
+    parser.addHandler("seasons", /(?:^|\s)S(\d{1,2})(?:\s|$)/i, array(integer), { skipIfAlreadyFound: true });
+
     // Ensure season (singular) is updated after Fan-sub Patterns 1 & 2 which run after the first
     // season singular handler — covers cases like (Sword of Coming 2) setting seasons=[2] late.
     parser.addHandler("season", ({ result }) => {
