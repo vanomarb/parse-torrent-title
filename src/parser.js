@@ -64,6 +64,20 @@ function cleanTitle(rawTitle) {
         cleanedTitle = cleanedTitle.replace(/\./g, " ");
     }
 
+    // GM-Team / all-bracket style: [Group][Chinese][Title][year][ep][tags]
+    // When the entire slice is bracket-enclosed sections, extract the first
+    // primarily-Latin bracket as the title (e.g. [Apotheosis Ⅲ] → "Apotheosis")
+    {
+        const t = cleanedTitle.replace(/\s+/g, " ").trim();
+        if (/^(?:\[[^\]]*\]\s*)+$/.test(t)) {
+            const brackets = [...t.matchAll(/\[([^\]]+)\]/g)].map(m => m[1].trim());
+            const eng = brackets.find(b => b.length > 2 && /\s/.test(b) && /^[A-Za-z0-9\s\u2160-\u2169:'.-]+$/.test(b));
+            if (eng) {
+                return eng.trim();
+            }
+        }
+    }
+
     cleanedTitle = cleanedTitle
         .replace(/_/g, " ")
         .replace(/[[(]movie[)\]]/i, "") // clear movie indication flag
@@ -75,6 +89,24 @@ function cleanTitle(rawTitle) {
         .replace(NOT_ONLY_NON_ENGLISH_REGEX, "") // remove non english chars if they are not the only ones left
         .replace(REMAINING_NOT_ALLOWED_SYMBOLS_AT_START_AND_END, "")
         .trim();
+
+    // Donghua: strip trailing Unicode Roman numeral season suffix ONLY when that suffix
+    // came from a separate bracket (e.g. "[Apotheosis Ⅲ]" inside a GM-Team multi-bracket
+    // title).  For a plain title like "Magical Legend of Rise to immortality Ⅲ" the
+    // Roman numeral IS part of the title descriptor, so we only strip it when the
+    // season was already captured by the handlers (result is unused here, so we leave it
+    // to the early-exit GM-Team branch above, which does strip it).
+    // No-op here — handled in the all-bracket fast-path above.
+
+    // Donghua: when multiple pipe-separated ASCII segments remain after Chinese removal,
+    // prefer the last non-empty segment (typically the English title)
+    // e.g. "Shen Yin Wangzuo | Throne of Seal" → "Throne of Seal"
+    if (cleanedTitle.includes("|")) {
+        const segs = cleanedTitle.split("|").map(s => s.trim()).filter(Boolean);
+        if (segs.length > 1) {
+            cleanedTitle = segs[segs.length - 1];
+        }
+    }
 
     return cleanedTitle;
 }

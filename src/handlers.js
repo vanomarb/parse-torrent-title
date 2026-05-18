@@ -190,6 +190,39 @@ exports.addDefaults = /** @type Parser */ parser => {
     parser.addHandler("seasons", /(?<!\bEp?(?:isode)? ?\d+\b.*)\b(\d{2})[ ._]\d{2}(?:.F)?\.\w{2,4}$/, array(integer));
     parser.addHandler("seasons", /\bEp(?:isode)?\W+(\d{1,2})\.\d{1,3}\b/i, array(integer));
 
+    // Donghua: Chinese season marker 第X季 (e.g. [百炼成神 第3季])
+    // skipFromTitle prevents the match position from corrupting endOfTitle
+    parser.addHandler("seasons", /第(\d{1,2})季/, array(integer), { skipFromTitle: true });
+
+    // Donghua: Roman numeral after arc/arc-title section: "- Arc Name III" before episode range
+    // e.g. "Battle Through The Heavens - Nian Fan III (106-157)" → season 3
+    // Only unambiguous Roman numerals (III+) to avoid false positives
+    parser.addHandler("seasons", ({ title, result }) => {
+        if (result.seasons) return null;
+        const ROMAN_MAP = { 'XIII': 13, 'XII': 12, 'XI': 11, 'IX': 9, 'VIII': 8, 'VII': 7, 'VI': 6, 'IV': 4, 'III': 3 };
+        const m = title.match(/-\s+[A-Za-z][A-Za-z\s.'-]{2,}\s+(XIII|XII|XI|IX|VIII|VII|VI|IV|III)\s*[([\[]/);
+        if (m) {
+            const season = ROMAN_MAP[m[1]];
+            if (season) {
+                result.seasons = [season];
+                return { matchIndex: title.indexOf(m[0]) };
+            }
+        }
+        return null;
+    });
+
+    // Donghua: Inline Roman numeral II before dash separator
+    // e.g. "Douluo Dalu II - Soul Land 2 - 112" → season 2
+    parser.addHandler("seasons", ({ title, result }) => {
+        if (result.seasons) return null;
+        const m = title.match(/\s(II)\s+-\s+[A-Za-z]/);
+        if (m) {
+            result.seasons = [2];
+            return { matchIndex: title.indexOf(m[0]) };
+        }
+        return null;
+    });
+
     // adds single season info if its there"s only single season
     parser.addHandler("season", ({ result }) => {
         if (result.seasons && result.seasons.length === 1) {
@@ -241,6 +274,21 @@ exports.addDefaults = /** @type Parser */ parser => {
     // Requires ≥3 alpha chars before the number to avoid matching (720p) or (2024)
     // remove:true strips the matched group so the trailing number isn't re-parsed as an episode
     parser.addHandler("seasons", /\([A-Za-z][A-Za-z\s:'.-]{2,}\s+(\d{1,2})\)/, array(integer), { remove: true });
+
+    // Ensure season (singular) is updated after Fan-sub Patterns 1 & 2 which run after the first
+    // season singular handler — covers cases like (Sword of Coming 2) setting seasons=[2] late.
+    parser.addHandler("season", ({ result }) => {
+        if (!result.season && result.seasons && result.seasons.length === 1) {
+            result.season = result.seasons[0];
+        }
+    });
+
+    // Donghua SP/Special episode: "Title SP1" → episode 1, strips SP tag from title
+    parser.addHandler("episodes", /\bSP(\d{1,2})\b/, array(integer), { remove: true, skipIfAlreadyFound: false });
+
+    // Donghua subtitle-episode: "[Group] Title/Alt - SubTitle N (resolution)"
+    // e.g. "[Impromptu] Ling Long/ Spirit Cage/ Ling Cage - Incarnation 10 (1080p)" → episode 10
+    parser.addHandler("episodes", /^\[[^\]]+\](?:[^[\]|-]+\/)+[^[\]|-]+-\s+[A-Za-z][A-Za-z\s]{1,25}\s+(\d{1,3})\s*[([]/i, array(integer), { skipIfAlreadyFound: true });
 
     // Episode
     parser.addHandler("episodes", /(?:[\W\d]|^)e[ .]?[([]?(\d{1,3}(?:[ .-]*(?:[&+]|e){1,2}[ .]?\d{1,3})+)(?:\W|$)/i, range);
