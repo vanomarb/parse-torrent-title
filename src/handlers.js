@@ -165,6 +165,51 @@ exports.addDefaults = /** @type Parser */ parser => {
     });
 
     // Season
+    // Detect multi-season episode ranges like S01E001-S04E126 and extract explicit
+    // season list and episode-range bounds.  This produces richer metadata so
+    // callers can decide whether to treat the upload as a multi-season pack.
+    parser.addHandler("seasons", ({ title, result }) => {
+        if (result.seasons) return null;
+        const m = title.match(/S(\d{1,2})E(\d{1,3})\s*[-–~]\s*S(\d{1,2})E?(\d{1,3})/i);
+        if (m) {
+            const startSeason = parseInt(m[1], 10);
+            const startEp = parseInt(m[2], 10);
+            const endSeason = parseInt(m[3], 10);
+            const endEp = parseInt(m[4], 10);
+            if ([startSeason, startEp, endSeason, endEp].every(n => !Number.isNaN(n))) {
+                // build seasons array [start..end]
+                const seasons = [];
+                for (let s = startSeason; s <= endSeason; s++) seasons.push(s);
+                result.seasons = seasons;
+                // prefer the first season/episode as the representative single-episode
+                // (keeps existing tests that expect S1 E1), but also expose full range
+                result.season = startSeason;
+                result.episode = startEp;
+                result.episodeRangeStart = startEp;
+                result.episodeRangeEnd = endEp;
+                result.seasonConfidence = "range";
+                result.batch = true;
+                result.isBatch = true;
+                return { rawMatch: m[0], matchIndex: m.index, remove: true };
+            }
+        }
+        return null;
+    });
+
+    // Handle trailing single-pipe numeric markers like "| 041" as episode numbers.
+    // Avoid accidentally matching common resolution numbers (720, 1080, 2160, etc.).
+    parser.addHandler("episodes", ({ title, result }) => {
+        if (result.episodes) return null;
+        const m = title.match(/\|\s*0*(\d{1,4})\s*$/);
+        if (m) {
+            const n = parseInt(m[1], 10);
+            const skipRes = new Set([480, 576, 720, 1080, 1440, 2160, 3840]);
+            if (skipRes.has(n)) return null;
+            result.episodes = [n];
+            return { rawMatch: m[0], matchIndex: m.index, remove: true };
+        }
+        return null;
+    });
     parser.addHandler("seasons", /(?:complete\W|seasons?\W|\W|^)((?:s\d{1,2}[., +/\\&-]+)+s\d{1,2}\b)/i, range, { remove: true });
     parser.addHandler("seasons", /(?:complete\W|seasons?\W|\W|^)[([]?(s\d{2,}-\d{2,}\b)[)\]]?/i, range, { remove: true });
     parser.addHandler("seasons", /(?:complete\W|seasons?\W|\W|^)[([]?(s[1-9]-[2-9]\b)[)\]]?/i, range, { remove: true });
